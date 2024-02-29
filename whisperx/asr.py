@@ -172,12 +172,12 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], 
+        self, audio: Union[str, np.ndarray], start_time: float,
         webrtcsend_method = None,
         batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
     ) -> TranscriptionResult:
         if isinstance(audio, str):
-            audio = load_audio(audio)
+            audio = load_audio(audio, start_time=start_time)
 
         def data(audio, segments):
             for seg in segments:
@@ -228,8 +228,8 @@ class FasterWhisperPipeline(Pipeline):
                 text = text[0]
             data = {
                     "text": text,
-                    "start": round(vad_segments[idx]['start'], 3),
-                    "end": round(vad_segments[idx]['end'], 3)}
+                    "start": round(vad_segments[idx]['start'], 3) + start_time,
+                    "end": round(vad_segments[idx]['end'], 3) + start_time}
             if webrtcsend_method:
                 webrtcsend_method(json.dumps(data))
             segments.append(data)
@@ -322,10 +322,7 @@ def load_model(whisper_arch,
         "word_timestamps": False,
         "prepend_punctuations": "\"'“¿([{-",
         "append_punctuations": "\"'.。,，!！?？:：”)]}、",
-        "suppress_numerals": False,
-        "max_new_tokens": None,
-        "clip_timestamps": None,
-        "hallucination_silence_threshold": None,
+        "suppress_numerals": False
     }
 
     if asr_options is not None:

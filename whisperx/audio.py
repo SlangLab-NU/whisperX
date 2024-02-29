@@ -22,9 +22,9 @@ FRAMES_PER_SECOND = exact_div(SAMPLE_RATE, HOP_LENGTH)  # 10ms per audio frame
 TOKENS_PER_SECOND = exact_div(SAMPLE_RATE, N_SAMPLES_PER_TOKEN)  # 20ms per audio token
 
 
-def load_audio(file: str, sr: int = SAMPLE_RATE):
+def load_audio(file: str, sr: int = SAMPLE_RATE, start_time: float = 0, duration: float = None):
     """
-    Open an audio file and read as mono waveform, resampling as necessary
+    Open an audio file and read as mono waveform, resampling as necessary, starting from a specific time.
 
     Parameters
     ----------
@@ -33,6 +33,12 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
 
     sr: int
         The sample rate to resample the audio if necessary
+
+    start_time: float
+        The start time in seconds from which to begin reading the audio
+
+    duration: float (optional)
+        The duration in seconds of the audio to read. If None, reads until the end of the file.
 
     Returns
     -------
@@ -46,6 +52,8 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
             "-nostdin",
             "-threads",
             "0",
+            "-ss",
+            str(start_time),
             "-i",
             file,
             "-f",
@@ -56,13 +64,16 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
             "pcm_s16le",
             "-ar",
             str(sr),
-            "-",
         ]
+        if duration is not None:
+            cmd += ["-t", str(duration)]
+        cmd.append("-")
         out = subprocess.run(cmd, capture_output=True, check=True).stdout
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
