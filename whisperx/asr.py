@@ -1,5 +1,6 @@
 import os
 import warnings
+import json
 from typing import List, Union, Optional, NamedTuple
 
 import ctranslate2
@@ -171,10 +172,12 @@ class FasterWhisperPipeline(Pipeline):
         return final_iterator
 
     def transcribe(
-        self, audio: Union[str, np.ndarray], batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
+        self, audio: Union[str, np.ndarray], start_time: float,
+        webrtcsend_method = None,
+        batch_size=None, num_workers=0, language=None, task=None, chunk_size=30, print_progress = False, combined_progress=False
     ) -> TranscriptionResult:
         if isinstance(audio, str):
-            audio = load_audio(audio)
+            audio = load_audio(audio, start_time=start_time)
 
         def data(audio, segments):
             for seg in segments:
@@ -223,13 +226,13 @@ class FasterWhisperPipeline(Pipeline):
             text = out['text']
             if batch_size in [0, 1, None]:
                 text = text[0]
-            segments.append(
-                {
+            data = {
                     "text": text,
-                    "start": round(vad_segments[idx]['start'], 3),
-                    "end": round(vad_segments[idx]['end'], 3)
-                }
-            )
+                    "start": round(vad_segments[idx]['start'], 3) + start_time,
+                    "end": round(vad_segments[idx]['end'], 3) + start_time}
+            if webrtcsend_method:
+                webrtcsend_method(json.dumps(data))
+            segments.append(data)
 
         # revert the tokenizer if multilingual inference is enabled
         if self.preset_language is None:
